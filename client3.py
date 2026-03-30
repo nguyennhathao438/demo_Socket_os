@@ -23,7 +23,7 @@ def receive_messages(sock):
 
 
 def main():
-    HOST = '127.0.0.1'
+    HOST = '52.62.58.134'
     PORT = 8084
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

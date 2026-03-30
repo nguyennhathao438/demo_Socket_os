@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Chat Nhóm</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-blue-50 p-8">
+    <div class="max-w-lg mx-auto bg-white shadow-lg rounded-lg p-6">
+        <h2 class="text-2xl font-bold mb-4 text-blue-600">Phòng Chat Công Cộng</h2>
+
+        <!-- JOIN -->
+        <div id="setup" class="mb-4">
+            <input id="name" type="text" placeholder="Tên của bạn..." class="border p-2 rounded w-full mb-2">
+            <button onclick="join()" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">
+                Vào Chat
+            </button>
+        </div>
+
+        <!-- CHAT BOX -->
+        <div id="chat-box" class="h-64 border overflow-y-auto p-4 mb-4 bg-gray-50 rounded">
+        </div>
+
+        <!-- INPUT -->
+        <div class="flex">
+            <input id="msg" type="text" class="flex-1 border p-2 rounded-l" placeholder="Nhắn gì đó..."
+                onkeydown="if(event.key==='Enter') send()">
+            <button onclick="send()" class="bg-green-500 text-white px-4 rounded-r hover:bg-green-600">
+                Gửi
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+
+        function join() {
+            const name = document.getElementById("name").value.trim();
+            if (!name) return alert("Nhập tên!");
+
+            const protocol = location.protocol === "https:" ? "wss" : "ws";
+            ws = new WebSocket(`${protocol}://${window.location.host}/ws/chat/${name}`);
+
+            ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                const box = document.getElementById("chat-box");
+
+                box.innerHTML += `
+                    <div class="mb-1">
+                        <b class="text-blue-600">${data.user}:</b> ${data.message}
+                    </div>
+                `;
+
+                box.scrollTop = box.scrollHeight;
+            };
+
+            ws.onclose = () => {
+                alert("Mất kết nối server");
+            };
+
+            document.getElementById("setup").innerHTML = `
+                <p class="text-green-500">
+                    Đang chat với tên: <b>${name}</b>
+                </p>
+            `;
+        }
+
+        function send() {
+            const input = document.getElementById("msg");
+            if (ws && input.value.trim()) {
+                ws.send(input.value);
+                input.value = "";
+            }
+        }
+    </script>
+</body>
+
+</html>

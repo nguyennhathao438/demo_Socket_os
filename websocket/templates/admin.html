@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-900 text-white p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-red-500 mb-4">
+            Hệ Thống Quản Trị Chat
+        </h1>
+
+        <!-- ONLINE COUNT -->
+        <div class="bg-gray-800 p-4 rounded mb-4">
+            Số người đang Online:
+            <span id="count" class="text-xl text-yellow-400">0</span>
+        </div>
+
+        <!-- LOGS -->
+        <div id="logs" class="bg-black p-4 h-96 overflow-y-auto font-mono text-sm border border-gray-700 rounded">
+            <div class="text-gray-500">--- Đang chờ dữ liệu ---</div>
+        </div>
+    </div>
+
+    <script>
+        const protocol = location.protocol === "https:" ? "wss" : "ws";
+        const ws = new WebSocket(`${protocol}://${window.location.host}/ws/admin`);
+
+        ws.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+
+            if (data.type === "admin_log") {
+                document.getElementById("count").innerText = data.online_count;
+
+                const log = document.getElementById("logs");
+
+                log.innerHTML += `
+                    <div class="mb-2">
+                        <span class="text-blue-400">[${data.ip}]</span> 
+                        <span class="text-gray-300">${data.content}</span>
+
+                        ${data.ip ? `
+                            <button onclick="ban('${data.ip}')" 
+                                class="bg-red-600 text-xs px-2 ml-2 rounded hover:bg-red-700">
+                                CHẶN IP
+                            </button>
+                        ` : ""}
+                    </div>
+                `;
+
+                log.scrollTop = log.scrollHeight;
+            }
+        };
+
+        function ban(ip) {
+            if (confirm("Chặn IP: " + ip + "?")) {
+                ws.send(JSON.stringify({
+                    action: "ban",
+                    ip: ip
+                }));
+            }
+        }
+
+        ws.onclose = () => {
+            alert("Admin mất kết nối server!");
+        };
+    </script>
+
+</body>
+
+</html>
