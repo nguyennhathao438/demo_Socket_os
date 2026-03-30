@@ -34,29 +34,68 @@
 
     <script>
         let ws;
-
         function join() {
             const name = document.getElementById("name").value.trim();
             if (!name) return alert("Nhập tên!");
-
+            if (/\s/.test(name)) {
+                return alert("Tên không được chứa dấu cách! Vui lòng dùng dấu gạch dưới (vd: Nguyen_Van_A)");
+            }
             const protocol = location.protocol === "https:" ? "wss" : "ws";
             ws = new WebSocket(`${protocol}://${window.location.host}/ws/chat/${name}`);
 
             ws.onmessage = (e) => {
                 const data = JSON.parse(e.data);
                 const box = document.getElementById("chat-box");
+                let html = "";
 
-                box.innerHTML += `
-                    <div class="mb-1">
-                        <b class="text-blue-600">${data.user}:</b> ${data.message}
-                    </div>
-                `;
+                if (data.type === "private") {
+                    // Giao diện tin nhắn riêng
+                    const isMe = data.from === name; // 'name' là biến lưu nickname của chính mình
+                    html = `
+            <div class="mb-1 p-1 bg-purple-50 rounded border border-purple-100 italic">
+                <span class="text-purple-600 font-bold">
+                    ${isMe ? `[Gửi tới ${data.to}]` : `[Tin riêng từ ${data.from}]`}:
+                </span> 
+                <span class="text-purple-700">${data.message}</span>
+            </div>
+        `;
+                } else {
+                    // Giao diện tin nhắn công khai/hệ thống (giữ nguyên logic cũ)
+                    const isSys = data.type === "sys";
+                    const userClass = isSys ? "text-gray-500" : "text-blue-600 font-bold";
+                    html = `
+            <div class="mb-1">
+                <span class="${userClass}">${data.user || data.from}:</span> ${data.message}
+            </div>
+        `;
+                }
 
+                box.innerHTML += html;
                 box.scrollTop = box.scrollHeight;
             };
 
-            ws.onclose = () => {
-                alert("Mất kết nối server");
+            ws.onclose = (event) => {
+                const box = document.getElementById("chat-box");
+
+                // Kiểm tra mã đóng (Close Code) từ Server gửi về
+                if (event.code === 4003) {
+                    // Hiển thị thông báo bị Ban ngay trong khung chat
+                    box.innerHTML += `
+                        <div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-100 border border-red-200 mt-2" role="alert">
+                            <span class="font-bold">Thông báo:</span> Tài khoản/IP của bạn đã bị quản trị viên chặn khỏi hệ thống.
+                        </div>
+                    `;
+                    // Thay đổi trạng thái nhập liệu
+                    document.getElementById("setup").innerHTML = `
+                        <p class="text-red-600 font-bold italic">
+                            TRẠNG THÁI: ĐÃ BỊ CẤM TRUY CẬP
+                        </p>
+                    `;
+                    document.getElementById("msg").disabled = true;
+                    document.getElementById("msg").placeholder = "Bạn không thể gửi tin nhắn...";
+                } else {
+                    alert("Mất kết nối server hoặc phòng chat đã đóng.");
+                }
             };
 
             document.getElementById("setup").innerHTML = `
@@ -68,7 +107,7 @@
 
         function send() {
             const input = document.getElementById("msg");
-            if (ws && input.value.trim()) {
+            if (ws && ws.readyState === WebSocket.OPEN && input.value.trim()) {
                 ws.send(input.value);
                 input.value = "";
             }

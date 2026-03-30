@@ -2,26 +2,55 @@
 <html>
 
 <head>
-    <title>Admin Panel</title>
+    <title>Admin Panel - Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            border-radius: 10px;
+        }
+    </style>
 </head>
 
-<body class="bg-gray-900 text-white p-8">
+<body class="bg-gray-900 text-white p-6">
 
-    <div class="max-w-4xl mx-auto">
-        <h1 class="text-3xl font-bold text-red-500 mb-4">
-            Hệ Thống Quản Trị Chat
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold text-red-500 mb-6 border-b border-red-900 pb-2">
+            Hệ Thống Quản Trị Cao Cấp
         </h1>
 
-        <!-- ONLINE COUNT -->
-        <div class="bg-gray-800 p-4 rounded mb-4">
-            Số người đang Online:
-            <span id="count" class="text-xl text-yellow-400">0</span>
-        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- LOGS -->
-        <div id="logs" class="bg-black p-4 h-96 overflow-y-auto font-mono text-sm border border-gray-700 rounded">
-            <div class="text-gray-500">--- Đang chờ dữ liệu ---</div>
+            <div class="lg:col-span-2 space-y-4">
+                <div class="bg-gray-800 p-4 rounded shadow-lg">
+                    <h2 class="text-sm font-semibold uppercase text-gray-400 mb-2">Nhật ký hệ thống</h2>
+                    <div id="logs"
+                        class="bg-black p-4 h-96 overflow-y-auto font-mono text-sm border border-gray-700 rounded shadow-inner">
+                        <div class="text-gray-500 italic">--- Đang chờ dữ liệu hệ thống ---</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div class="bg-gray-800 p-4 rounded shadow-lg border-t-4 border-green-500">
+                    <h2 class="text-sm font-semibold uppercase text-gray-400 mb-3 flex justify-between">
+                        Đang Online <span id="count" class="text-green-400">0</span>
+                    </h2>
+                    <ul id="online-list" class="space-y-2 max-h-60 overflow-y-auto">
+                    </ul>
+                </div>
+
+                <div class="bg-gray-800 p-4 rounded shadow-lg border-t-4 border-red-500">
+                    <h2 class="text-sm font-semibold uppercase text-gray-400 mb-3">IP Đã Chặn</h2>
+                    <ul id="banned-list" class="space-y-2 max-h-60 overflow-y-auto text-sm">
+                    </ul>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -32,43 +61,67 @@
         ws.onmessage = (e) => {
             const data = JSON.parse(e.data);
 
+            // 1. Cập nhật Logs
             if (data.type === "admin_log") {
-                document.getElementById("count").innerText = data.online_count;
-
-                const log = document.getElementById("logs");
-
-                log.innerHTML += `
-                    <div class="mb-2">
-                        <span class="text-blue-400">[${data.ip}]</span> 
+                const logBox = document.getElementById("logs");
+                logBox.innerHTML += `
+                    <div class="mb-1 border-b border-gray-800 pb-1">
+                        <span class="text-blue-400">[${data.ip || 'SYSTEM'}]</span> 
                         <span class="text-gray-300">${data.content}</span>
-
-                        ${data.ip ? `
-                            <button onclick="ban('${data.ip}')" 
-                                class="bg-red-600 text-xs px-2 ml-2 rounded hover:bg-red-700">
-                                CHẶN IP
-                            </button>
-                        ` : ""}
                     </div>
                 `;
+                logBox.scrollTop = logBox.scrollHeight;
+            }
 
-                log.scrollTop = log.scrollHeight;
+            // 2. Cập nhật UI Danh sách (Dựa trên dữ liệu server gửi về)
+            // Giả sử server gửi thêm field 'online_users' và 'banned_ips'
+            if (data.online_users) {
+                updateOnlineList(data.online_users);
+                document.getElementById("count").innerText = data.online_users.length;
+            }
+            if (data.banned_ips) {
+                updateBannedList(data.banned_ips);
             }
         };
 
+        function updateOnlineList(users) {
+            const list = document.getElementById("online-list");
+            list.innerHTML = users.map(user => `
+                <li class="flex justify-between items-center bg-gray-700 p-2 rounded text-sm">
+                    <span class="truncate pr-2">${user.username} <small class="text-gray-400">(${user.ip})</small></span>
+                    <button onclick="ban('${user.ip}')" class="bg-red-600 hover:bg-red-700 text-[10px] px-2 py-1 rounded">BAN</button>
+                </li>
+            `).join('');
+        }
+
+        function updateBannedList(ips) {
+            const list = document.getElementById("banned-list");
+            if (ips.length === 0) {
+                list.innerHTML = `<li class="text-gray-600 italic text-xs">Trống</li>`;
+                return;
+            }
+            list.innerHTML = ips.map(ip => `
+                <li class="flex justify-between items-center border-b border-gray-700 py-1">
+                    <span class="text-red-400">${ip}</span>
+                    <button onclick="unban('${ip}')" class="text-blue-400 hover:text-blue-200 text-xs font-bold underline">MỞ CHẶN</button>
+                </li>
+            `).join('');
+        }
+
         function ban(ip) {
-            if (confirm("Chặn IP: " + ip + "?")) {
-                ws.send(JSON.stringify({
-                    action: "ban",
-                    ip: ip
-                }));
+            if (confirm(`Xác nhận chặn IP: ${ip}?`)) {
+                ws.send(JSON.stringify({ action: "ban", ip: ip }));
             }
         }
 
-        ws.onclose = () => {
-            alert("Admin mất kết nối server!");
-        };
-    </script>
+        function unban(ip) {
+            if (confirm(`Mở chặn cho IP: ${ip}?`)) {
+                ws.send(JSON.stringify({ action: "unban", ip: ip }));
+            }
+        }
 
+        ws.onclose = () => alert("Mất kết nối Server!");
+    </script>
 </body>
 
 </html>
